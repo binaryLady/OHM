@@ -1,5 +1,6 @@
 import { test, expect } from "./mock-api";
 import { expectNoA11yViolations } from "./a11y";
+import { BRAND_TAGLINE_LINKS } from "../app/brand";
 
 // Slice #196 + review #1: dashboard / home with the network map as the hero.
 
@@ -48,3 +49,34 @@ test("dashboard has no serious accessibility violations", async ({ page }) => {
   await page.goto("/");
   await expectNoA11yViolations(page);
 });
+
+
+/**
+ * The hero crumb is navigation, not decoration.
+ *
+ * "designs · facilities · supply chains" sat under the h1 as dead text on the
+ * page a first-time visitor lands on, naming the three things the app holds and
+ * offering no way to reach any of them.
+ *
+ * Driven from BRAND_TAGLINE_LINKS rather than restated here, so a term added to
+ * the tagline is asserted to lead somewhere instead of quietly shipping as
+ * more dead text. Scoped to the page hero inside <main>: the same words appear
+ * in the sitemap drawer and in Getting Started, and an unscoped role query
+ * would pass on those while the crumb stayed unlinked.
+ */
+for (const term of BRAND_TAGLINE_LINKS) {
+  test(`the hero crumb links "${term.label}" to ${term.href}`, async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .locator("#main header")
+      .first()
+      .getByRole("link", { name: term.label, exact: true })
+      .click();
+    // Anchored on the path, not the whole URL: theme and mode ride in the
+    // query string and survive navigation, so `${href}$` never matches once a
+    // look has been pinned — which the mocked lane does on every goto.
+    await expect(page).toHaveURL(new RegExp(`${term.href}(\\?|$)`));
+  });
+}
